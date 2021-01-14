@@ -1,0 +1,5 @@
+Some info about second test
+It may contain new lines
+and also pipes '|'.
+Best to keep lines short, as displays may not be able to wrap
+long lines nicely.
