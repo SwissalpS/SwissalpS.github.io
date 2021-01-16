@@ -3,3 +3,4 @@
 -- |name
 -- any line that does not have 9 parts, MUST be ignored
 hat1|315|157|420|1095|0|1|0|Big Coloured Hat
+stag2|440|678|245|1|0|1|0|Huge Single Coloured Stag

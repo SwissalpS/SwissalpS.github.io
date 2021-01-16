@@ -1,0 +1,8 @@
+Very tall detailed stag with single colour
+ID: stag2
+width (x): 440
+height (y): 678
+depth (z): 245
+total points: 234077
+materials: 1
+Build direction: Upward (+y)
