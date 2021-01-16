@@ -1,6 +1,0 @@
--- header order: id (folder name)|width (x)|height (y)|depth (z)
--- |amount of materials|slice direction x|slice direction y|slice direction z
--- |name
-test1|34|44|12|1|0|1|0|The first test
-test2|234|144|312|1|1|0|0|The second test
-test3|334|4|132|1|0|-1|0|The third test
