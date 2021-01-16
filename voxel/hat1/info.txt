@@ -1,0 +1,9 @@
+Big coloured hat with insane amount of
+colours/materials.
+ID: hat1
+width (x): 315
+height (y): 157
+depth (z): 420
+total points: 239075
+materials: 1095
+Build direction: Upward (+y)
