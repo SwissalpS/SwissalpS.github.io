@@ -2,27 +2,31 @@
 
 local iTS0 = os.clock()
 
+local tSettings = {}
+local tS = tSettings
 -- system dependent path separator
-local sDirSep = '/'
+tSettings.sDirSep = '/'
 -- separator for direction vector in command argument
-local sDirectionSep = 'x'
-local sDS = sDirectionSep
+tSettings.sDirectionSep = 'x'
+local sDS = tSettings.sDirectionSep
 
 -- maximum line length (one \n is added)
-local iMaxChars = 1023
+tSettings.iMaxChars = 1023
 -- maximum lines per file
-local iMaxLines = 11111
+--tSettings.iMaxLines = 11111
 
 -- position where jd can jump to if needed
--- we don't know it, so we use smth that will never be used
--- but easy for lua controller to detect in-game.
-local tEscapePos = { x = .1, y = .1, z = .1, m = 0 }
+-- we don't know it, so we use something that will never be used
+-- but easy for lua controller to detect.
+tSettings.tEscapePos = { x = .1, y = .1, z = .1, m = 0 }
 -- radius of jumpdrive
-local iJDradius = 1
+tSettings.iJDradius = 1
 -- calculate min jump distance from radius
-local iDeltaMin = 1 + (2 * iJDradius)
+local iDeltaMin = 1 + (2 * tSettings.iJDradius)
 
-local function showUsage()
+-- pseudo object
+local oC = {}
+function oC.showUsage()
 	local sOut = arg[0] .. ' <path to input file> <path to output directory>'
 				.. '[ <build direction vector>]\n\n'
 				.. 'input file is a file generated with voxel converter\n'
@@ -34,16 +38,20 @@ end -- showUsage
 
 
 -- based on: https://stackoverflow.com/questions/1340230/check-if-directory-exists-in-lua
+-- had to make a couple of changes to get it to work on Fedora 33
 local function isDir(sPath)
 	if 'string' ~= type(sPath) then return false end
-	local hF = io.popen('cd ' .. sPath)
+	local hF = io.popen('cd ' .. sPath .. ' 2>&1')
+	if not hF then return false end
 	local sAll = hF:read('*all')
-	if sAll:find('ItemNotFoundException') then
+	hF:close()
+	if sAll:find('No such file or directory') then
 		return false
 	else
 		return true
 	end
 end -- isDir
+
 
 function dump(mVal, iIndent)
 	local sOut
@@ -103,7 +111,8 @@ function string:split(sSep)
 
 end -- string:split
 
-local function stringToFile(sOut, sPathFileOut)
+
+function oC.stringToFile(sOut, sPathFileOut)
 	local rFH = io.open(sPathFileOut, 'w')
 	if rFH then
 		rFH:write(sOut)
@@ -114,39 +123,38 @@ local function stringToFile(sOut, sPathFileOut)
 	end
 end -- stringToFile
 
-local function pointToString(t, iMaterial, bSkipMaterial)
+
+function oC.pointToString(t, iMaterial, bSkipMaterial)
 	local sOut = tostring(t.x) .. '|' .. tostring(t.y) .. '|' .. tostring(t.z)
 	if bSkipMaterial then return sOut end
 	iMaterial = t.m or iMaterial or 0
 	return sOut .. '|' .. tostring(iMaterial)
 end
-local function makePoint(x, y, z, m) return { x = x or 0, y = y or 0, z = z or 0, m = m or 0 } end
-local function pointFromList(l, iMaterial)
-	return makePoint(tonumber(l[1]), tonumber(l[2]), tonumber(l[3]), iMaterial)
+function oC.makePoint(x, y, z, m) return { x = x or 0, y = y or 0, z = z or 0, m = m or 0 } end
+function oC.pointFromList(l, iMaterial)
+	return oC.makePoint(tonumber(l[1]), tonumber(l[2]), tonumber(l[3]), iMaterial)
 end
-local function isValidDirection(t)
+function oC.isValidDirection(t)
 	if nil == t.x or nil == t.y or nil == t.z then return false end
 	if 1 ~= math.abs(t.x) + math.abs(t.y) + math.abs(t.z) then return false end
 	return true
 end
-local function isSamePoint(tA, tB)
+function oC.isSamePoint(tA, tB)
 	if tA.x ~= tB.x then return false end
 	if tA.y ~= tB.y then return false end
 	if tA.z ~= tB.z then return false end
 	return true
 end -- isSamePoint
-local function containsPoint(tHaystack, tPoint)
+function oC.containsPoint(tHaystack, tPoint)
 	local i = #tHaystack
 	if 0 == i then return false end
-
 	repeat
-		if isSamePoint(tPoint, tHaystack[i]) then return true end
+		if oC.isSamePoint(tPoint, tHaystack[i]) then return true end
 		i = i - 1
 	until 0 == i
-
 	return false
 end -- containsPoint
-local function isNotIntersecting(tA, tB)
+function oC.isNotIntersecting(tA, tB)
 	if math.abs(tA.x - tB.x) >= iDeltaMin then return true end
 	if math.abs(tA.y - tB.y) >= iDeltaMin then return true end
 	if math.abs(tA.z - tB.z) >= iDeltaMin then return true end
@@ -154,107 +162,109 @@ local function isNotIntersecting(tA, tB)
 end -- isNotIntersecting
 
 -- read arguments
-local sPathFileIn = arg[1]
-local sPathOut = arg[2]
-local sDirection = arg[3] or ('0' .. sDS .. '1' .. sDS .. '0')
+oC.sPathFileIn = arg[1]
+oC.sPathOut = arg[2]
+oC.sDirection = arg[3] or ('0' .. sDS .. '1' .. sDS .. '0')
 
-if nil == sPathFileIn then
-	showUsage()
+if nil == oC.sPathFileIn then
+	oC.showUsage()
 	os.exit()
 end
 
-if not isDir(sPathOut) then
-	showUsage()
+if not isDir(oC.sPathOut) then
+	oC.showUsage()
 	os.exit()
 end
+
 -- extract id out of path
-local lPath = sPathOut:split(sDirSep)
-local sID = lPath[#lPath]
-if sPathOut:sub(-1) ~= sDirSep then sPathOut = sPathOut .. sDirSep end
+local lPath = oC.sPathOut:split(tS.sDirSep)
+oC.sID = lPath[#lPath]
+if oC.sPathOut:sub(-1) ~= tS.sDirSep then oC.sPathOut = oC.sPathOut .. tS.sDirSep end
 
-local hIn = io.open(sPathFileIn)
+-- test to see if infile exists and can be opened for reading
+local hIn = io.open(oC.sPathFileIn, 'r')
 if nil == hIn then
-	showUsage()
+	oC.showUsage()
 	os.exit()
 end
 hIn:close()
 
-local tDirection = pointFromList(sDirection:split(sDS))
-if not isValidDirection(tDirection) then
+oC.tDirection = oC.pointFromList(oC.sDirection:split(sDS))
+if not oC.isValidDirection(oC.tDirection) then
 	print('invalid direction vector given')
-	showUsage()
+	oC.showUsage()
 	os.exit()
 end
 
 -- read all points into a table
 -- detecting materials as we go
-local tDB = {}
-local tHash = {}
+oC.tDB = {}
+oC.tHash = {}
 local tPoint
-local tPmax = { x = -45678, y = -45678, z = -45678 }
-local tPmin = { x = 45678, y = 45678, z = 45678 }
+oC.tPmax = { x = -45678, y = -45678, z = -45678 }
+oC.tPmin = { x = 45678, y = 45678, z = 45678 }
 local lLine
 local iMaterial
 local sColour
-local tMaterials = { [1] = '#000000', ['#000000'] = 1 }
-for sLine in io.lines(sPathFileIn) do
+oC.tMaterials = { [1] = '#000000', ['#000000'] = 1 }
+for sLine in io.lines(oC.sPathFileIn) do
 	--print(sLine)
 	lLine = sLine:split(',')
 	if 3 == #lLine then
 		iMaterial = 1
 	elseif 6 == #lLine then
 		sColour = string.format('#%02x%02x%02x', lLine[4], lLine[5], lLine[6])
-		if not tMaterials[sColour] then
-			tMaterials[#tMaterials + 1] = sColour
-			tMaterials[sColour] = #tMaterials
+		if not oC.tMaterials[sColour] then
+			oC.tMaterials[#oC.tMaterials + 1] = sColour
+			oC.tMaterials[sColour] = #oC.tMaterials
 		end
-		iMaterial = tMaterials[sColour]
+		iMaterial = oC.tMaterials[sColour]
 	else
 		print('unknown material format')
 	end
-	tPoint = pointFromList(lLine, iMaterial)
+	tPoint = oC.pointFromList(lLine, iMaterial)
 	-- detect min and max to later calculate dimensions
-	if tPmax.x < tPoint.x then tPmax.x = tPoint.x end
-	if tPmax.y < tPoint.y then tPmax.y = tPoint.y end
-	if tPmax.z < tPoint.z then tPmax.z = tPoint.z end
-	if tPmin.x > tPoint.x then tPmin.x = tPoint.x end
-	if tPmin.y > tPoint.y then tPmin.y = tPoint.y end
-	if tPmin.z > tPoint.z then tPmin.z = tPoint.z end
+	if oC.tPmax.x < tPoint.x then oC.tPmax.x = tPoint.x end
+	if oC.tPmax.y < tPoint.y then oC.tPmax.y = tPoint.y end
+	if oC.tPmax.z < tPoint.z then oC.tPmax.z = tPoint.z end
+	if oC.tPmin.x > tPoint.x then oC.tPmin.x = tPoint.x end
+	if oC.tPmin.y > tPoint.y then oC.tPmin.y = tPoint.y end
+	if oC.tPmin.z > tPoint.z then oC.tPmin.z = tPoint.z end
 	-- add to database
-	tDB[#tDB + 1] = tPoint
+	oC.tDB[#oC.tDB + 1] = tPoint
 	-- add to hash lookup
-	tHash[pointToString(tPoint, nil, true)] = tPoint
+	oC.tHash[oC.pointToString(tPoint, nil, true)] = tPoint
 	--print(pointToString(tPoint))
 end
 -- collect some info for user
-local tTotal = {
-	x = tPmax.x - tPmin.x + 1,
-	y = tPmax.y - tPmin.y + 1,
-	z = tPmax.z - tPmin.z + 1,
-	c = #tDB
+oC.tTotal = {
+	x = oC.tPmax.x - oC.tPmin.x + 1,
+	y = oC.tPmax.y - oC.tPmin.y + 1,
+	z = oC.tPmax.z - oC.tPmin.z + 1,
+	c = #oC.tDB
 }
-local sSummary = 'ID: ' .. sID .. '\n'
-		.. 'width (x): ' .. tTotal.x .. '\n'
-		.. 'height (y): ' .. tTotal.y .. '\n'
-		.. 'depth (z): ' .. tTotal.z .. '\n'
-		.. 'total points: ' .. tTotal.c .. '\n'
-		.. 'materials: ' .. tostring(#tMaterials)
+oC.sSummary = 'ID: ' .. oC.sID .. '\n'
+		.. 'width (x): ' .. oC.tTotal.x .. '\n'
+		.. 'height (y): ' .. oC.tTotal.y .. '\n'
+		.. 'depth (z): ' .. oC.tTotal.z .. '\n'
+		.. 'total points: ' .. oC.tTotal.c .. '\n'
+		.. 'materials: ' .. tostring(#oC.tMaterials)
 
 
 -- print for model-index.txt
 print('Add following line to models index.txt\n')
-local sOut = sID .. '|' .. tTotal.x .. '|' .. tTotal.y .. '|' .. tTotal.z
-	.. '|' .. #tMaterials .. '|' .. sDirection:gsub(sDS, '|')
+local sOut = oC.sID .. '|' .. oC.tTotal.x .. '|' .. oC.tTotal.y .. '|' .. oC.tTotal.z
+	.. '|' .. #oC.tMaterials .. '|' .. oC.sDirection:gsub(sDS, '|')
 	.. '|<insert title>\n'
 print(sOut)
 
 -- export colour index table
 sOut = ''
-for i = 1, #tMaterials do
-	sOut = sOut .. tostring(i) .. tMaterials[i] .. '\n'
+for i = 1, #oC.tMaterials do
+	sOut = sOut .. tostring(i) .. oC.tMaterials[i] .. '\n'
 end
-local sPathFileOut = sPathOut .. 'materials.txt'
-local bOK, sError = stringToFile(sOut, sPathFileOut)
+local sPathFileOut = oC.sPathOut .. 'materials.txt'
+local bOK, sError = oC.stringToFile(sOut, sPathFileOut)
 if not bOK then
 	print(sError)
 	os.exit()
@@ -264,58 +274,58 @@ end
 -- and subsequent order
 local sK1, sK2, sK3
 local iStep, lsDirection, sDirectionInfo
-if 0 ~= tDirection.x then
+if 0 ~= oC.tDirection.x then
 	sK1 = 'x' sK2 = 'y' sK3 = 'z'
-	iStep = tDirection.x
+	iStep = oC.tDirection.x
 	lsDirection = { 'West', 'East' }
-elseif 0 ~= tDirection.y then
+elseif 0 ~= oC.tDirection.y then
 	sK1 = 'y' sK2 = 'x' sK3 = 'z'
-	iStep = tDirection.y
+	iStep = oC.tDirection.y
 	lsDirection = { 'Down', 'Up' }
-elseif 0 ~= tDirection.z then
+elseif 0 ~= oC.tDirection.z then
 	sK1 = 'z' sK2 = 'x' sK3 = 'y'
-	iStep = tDirection.z
+	iStep = oC.tDirection.z
 	lsDirection = { 'South', 'North' }
 end
 local iFirst, iLast, sSign
 if 0 < iStep then
-	iFirst = tPmin[sK1]
-	iLast = tPmax[sK1]
+	iFirst = oC.tPmin[sK1]
+	iLast = oC.tPmax[sK1]
 	sDirectionInfo = lsDirection[2]
 	sSign = '+'
 else
-	iFirst = tPmax[sK1]
-	iLast = tPmin[sK1]
+	iFirst = oC.tPmax[sK1]
+	iLast = oC.tPmin[sK1]
 	sDirectionInfo = lsDirection[1]
 	sSign = '-'
 end
 sDirectionInfo = 'Build direction: ' .. sDirectionInfo .. 'ward'
 
 -- make a scaffold info.txt
-sOut = sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
-sPathFileOut = sPathOut .. 'info.txt'
-bOK, sError = stringToFile(sOut, sPathFileOut)
+sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
+sPathFileOut = oC.sPathOut .. 'info.txt'
+bOK, sError = oC.stringToFile(sOut, sPathFileOut)
 print(sOut .. ' ' .. sError)
 
 -- separate slices, materials and 'sort'
 local sPoint
 local lSlice, lM
-local lSlices = {}
+oC.lSlices = {}
 for i = iFirst, iLast, iStep do
 	--print(sK1 .. ' ' .. i)
 	lSlice = {}
-	for l = 1, #tMaterials do lSlice[l] = {} end
-	for j = tPmin[sK2], tPmax[sK2], 1 do
+	for l = 1, #oC.tMaterials do lSlice[l] = {} end
+	for j = oC.tPmin[sK2], oC.tPmax[sK2], 1 do
 		--print(sK2 .. ' ' .. j)
-		for k = tPmin[sK3], tPmax[sK3], 1 do
+		for k = oC.tPmin[sK3], oC.tPmax[sK3], 1 do
 			tPoint = {}
 			tPoint[sK1] = i
 			tPoint[sK2] = j
 			tPoint[sK3] = k
-			sPoint = pointToString(tPoint, nil, true)
+			sPoint = oC.pointToString(tPoint, nil, true)
 			--print(sPoint)
-			if tHash[sPoint] then
-				tPoint = tHash[sPoint]
+			if oC.tHash[sPoint] then
+				tPoint = oC.tHash[sPoint]
 				lM = lSlice[tPoint.m]
 				lM[#lM + 1] = tPoint
 				--lSlice[tPoint.m] = lM
@@ -325,35 +335,35 @@ for i = iFirst, iLast, iStep do
 	end
 	--print(#lSlice)
 	--if 0 ~= #lSlice then lSlices[#lSlices + 1] = lSlice end
-	lSlices[#lSlices + 1] = lSlice
+	oC.lSlices[#oC.lSlices + 1] = lSlice
 end
 
 -- now we need to make jump-compatible
-local lJDcompat = {}
+oC.lJDcompat = {}
 local lDone, iDone, bFound
-local tLastDefault = function() return { x = -45678, y = -45678, z = -45678 } end
+oC.tLastDefault = function() return { x = -45678, y = -45678, z = -45678 } end
 local tLast
-for i, lS in ipairs(lSlices) do
+for i, lS in ipairs(oC.lSlices) do
 	--pd('i ' .. i)
-	lJDcompat[i] = {}
-	for j = 1, #tMaterials do
+	oC.lJDcompat[i] = {}
+	for j = 1, #oC.tMaterials do
 		--pd('j ' .. j)
-		lJDcompat[i][j] = {}
+		oC.lJDcompat[i][j] = {}
 		lSlice = lS[j]
 		lDone = {}
 		iDone = 0
-		tLast = tLastDefault()
+		tLast = oC.tLastDefault()
 		--pd(lSlice)
 		--print('slice: ' .. i)
 		if 0 < #lSlice then
 			repeat
 				bFound = false
 				for _, tPoint in ipairs(lSlice) do
-					sPoint = pointToString(tPoint)
+					sPoint = oC.pointToString(tPoint)
 					if not lDone[sPoint] then
-						if isNotIntersecting(tLast, tPoint) then
+						if oC.isNotIntersecting(tLast, tPoint) then
 							tLast = tPoint
-							lJDcompat[i][j][#lJDcompat[i][j] + 1] = tPoint
+							oC.lJDcompat[i][j][#oC.lJDcompat[i][j] + 1] = tPoint
 							lDone[sPoint] = true
 							iDone = iDone + 1
 							bFound = true
@@ -361,10 +371,10 @@ for i, lS in ipairs(lSlices) do
 					end -- if not yet added
 				end -- loop j (points on slice)
 				if not bFound then
-					print('adding escape pos after: ' .. pointToString(tLast))
+					print('adding escape pos after: ' .. oC.pointToString(tLast))
 					-- add a jump to escape position
-					lJDcompat[i][j][#lJDcompat[i][j] + 1] = tEscapePos
-					tLast = tLastDefault()
+					oC.lJDcompat[i][j][#oC.lJDcompat[i][j] + 1] = tS.tEscapePos
+					tLast = oC.tLastDefault()
 				end
 			until #lSlice == iDone
 		end -- if got any at all
@@ -374,15 +384,15 @@ end -- loop i (slices)
 -- dump
 local sLine, sFile
 local sIndex = ''
-for i, lS in ipairs(lJDcompat) do
+for i, lS in ipairs(oC.lJDcompat) do
 	--print('slice: ' .. i)
-	for j = 1, #tMaterials do
+	for j = 1, #oC.tMaterials do
 		lSlice = lS[j]
 		sOut = ''
 		sLine = ''
 		for _, tPoint in ipairs(lSlice) do
-			sPoint = pointToString(tPoint, j, true)
-			if (#sPoint + #sLine) < iMaxChars then
+			sPoint = oC.pointToString(tPoint, j, true)
+			if (#sPoint + #sLine) < tS.iMaxChars then
 				if 0 ~= #sLine then sLine = sLine .. '|' end
 				sLine = sLine .. sPoint
 			else
@@ -393,7 +403,7 @@ for i, lS in ipairs(lJDcompat) do
 		sOut = sOut .. sLine
 		if 0 < #sOut then
 			sFile = 's' .. tostring(i) .. '_m' .. tostring(j) .. '.txt'
-			bOK, sError = stringToFile(sOut, sPathOut .. sFile)
+			bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
 			if bOK then
 				sIndex = sIndex .. sFile .. '\n'
 			else
@@ -404,8 +414,8 @@ for i, lS in ipairs(lJDcompat) do
 	end -- loop materials
 end -- loop slices
 
-sPathFileOut = sPathOut .. 'index.txt'
-bOK, sError = stringToFile(sIndex, sPathFileOut)
+sPathFileOut = oC.sPathOut .. 'index.txt'
+bOK, sError = oC.stringToFile(sIndex, sPathFileOut)
 if not bOK then print(sError) end
 
 print(string.format('elapsed time: %.2f\n', os.clock() - iTS0))
