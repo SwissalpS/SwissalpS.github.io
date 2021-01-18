@@ -6,3 +6,5 @@ depth (z): 245
 total points: 234077
 materials: 1
 Build direction: Upward (+y)
+Total Jumps: 234214
+Total Nodes: 234077
