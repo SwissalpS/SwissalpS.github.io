@@ -1,4 +1,41 @@
 #! /usr/bin/lua
+--[[
+	voxelTxtToJDready.lua
+	Script to prepare coordinates for minetest Lua Controller and
+	jumpdrive to 3D-Print models.
+	The input files are expected to be formatted this way:
+		x1, y1, z1\n
+		x2, y2, z2
+	For material/colour format input this way:
+		x1, y1, z1, r1, g1, b1\n
+		x2, y2, z2, r2, g2, b2
+
+	These input files can be created with tools like:
+		https://drububu.com/miscellaneous/voxelizer/
+
+	The script outputs:
+		info.txt
+			Basic info about the model. Intended to be augmented with more
+			description by user.
+		index.txt
+			Not intended for user to edit this. All the file names in order of
+			printing are listed here.
+		materials.txt
+			Index of all colour/materials. Currently only for user reference.
+		s<Slice Number>_m<Material Index>.txt
+			Each material/colour for each slice is in it's own file.
+			The file format is:
+				x1|y1|z1|x2|y2|z2 ... xN|yN|zN
+			The lines have a max length, if reached there is '\n' instead of '|'.
+			There is a special coordinate triplet: '0.1|0.1|0.1'
+			It signifies an escape position when jumpdrive needs to jump somewhere
+			to avoid 'jump to self' error.
+
+	All the coordinates
+
+
+
+--]]
 
 local iTS0 = os.clock()
 
