@@ -22,11 +22,12 @@
 			printing are listed here.
 		materials.txt
 			Index of all colour/materials. Currently only for user reference.
-		s<Slice Number>_m<Material Index>.txt
+		s<Slice Number>_m<Material Index>_p<Part Number>.txt
 			Each material/colour for each slice is in it's own file.
 			The file format is:
 				x1|y1|z1|x2|y2|z2 ... xN|yN|zN
-			The lines have a max length, if reached there is '\n' instead of '|'.
+			There is a limit to how many points are in one file. Slice continues
+			in next part-file (last number in file name increases)
 			There is a special coordinate triplet: '0.1|0.1|0.1'
 			It signifies an escape position when jumpdrive needs to jump somewhere
 			to avoid 'jump to self' error.
@@ -47,10 +48,10 @@ tSettings.sDirSep = '/'
 tSettings.sDirectionSep = 'x'
 local sDS = tSettings.sDirectionSep
 
--- maximum line length (one \n is added)
-tSettings.iMaxChars = 1023
--- maximum lines per file
---tSettings.iMaxLines = 11111
+-- maximum points per file (1400 is absolute max according to recent test)
+tSettings.iMaxJumps = 1234
+-- maximum nodes carried with printer head
+tSettings.iMaxNodes = 9 * 99 -- full deployer
 
 -- position where jd can jump to if needed
 -- we don't know it, so we use something that will never be used
@@ -338,12 +339,6 @@ else
 end
 sDirectionInfo = 'Build direction: ' .. sDirectionInfo .. 'ward'
 
--- make a scaffold info.txt
-sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
-sPathFileOut = oC.sPathOut .. 'info.txt'
-bOK, sError = oC.stringToFile(sOut, sPathFileOut)
-print(sOut .. ' ' .. sError)
-
 -- separate slices, materials and 'sort'
 local sPoint
 local lSlice, lM
@@ -419,27 +414,48 @@ for i, lS in ipairs(oC.lSlices) do
 end -- loop i (slices)
 
 -- dump
-local sLine, sFile
+local sLine, sFile, iCountJumps, iCountNodes, iCountParts
 local sIndex = ''
+local iTotalJumps = 0
+local iTotalNodes = 0
 for i, lS in ipairs(oC.lJDcompat) do
 	--print('slice: ' .. i)
 	for j = 1, #oC.tMaterials do
 		lSlice = lS[j]
 		sOut = ''
-		sLine = ''
+		iCountJumps = 0
+		iCountNodes = 0
+		iCountParts = 0
 		for _, tPoint in ipairs(lSlice) do
-			sPoint = oC.pointToString(tPoint, j, true)
-			if (#sPoint + #sLine) < tS.iMaxChars then
-				if 0 ~= #sLine then sLine = sLine .. '|' end
-				sLine = sLine .. sPoint
-			else
-				sOut = sOut .. sLine .. '\n'
-				sLine = ''
+			iCountJumps = iCountJumps + 1
+			if not oC.isSamePoint(tPoint, tSettings.tEscapePos) then
+				iCountNodes = iCountNodes + 1
 			end
+			sPoint = oC.pointToString(tPoint, j, true)
+			if 0 ~= #sOut then sOut = sOut .. '|' end
+			sOut = sOut .. sPoint
+			if tS.iMaxJumps <= iCountJumps or tS.iMaxNodes <= iCountNodes then
+				sFile = 's' .. tostring(i) .. '_m' .. tostring(j)
+						.. '_p' .. tostring(iCountParts) .. '.txt'
+				bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
+				if bOK then
+					sIndex = sIndex .. sFile .. '\n'
+				else
+					print(sError)
+				end
+				sOut = ''
+				iTotalJumps = iTotalJumps + iCountJumps
+				iTotalNodes = iTotalNodes + iCountNodes
+				iCountJumps = 0
+				iCountNodes = 0
+				iCountParts = iCountParts + 1
+			end -- if need to write file
 		end -- loop points on slice
-		sOut = sOut .. sLine
 		if 0 < #sOut then
-			sFile = 's' .. tostring(i) .. '_m' .. tostring(j) .. '.txt'
+			iTotalJumps = iTotalJumps + iCountJumps
+			iTotalNodes = iTotalNodes + iCountNodes
+			sFile = 's' .. tostring(i) .. '_m' .. tostring(j)
+					.. '_p' .. tostring(iCountParts) .. '.txt'
 			bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
 			if bOK then
 				sIndex = sIndex .. sFile .. '\n'
@@ -451,9 +467,18 @@ for i, lS in ipairs(oC.lJDcompat) do
 	end -- loop materials
 end -- loop slices
 
+-- make index.txt with list of all parts
 sPathFileOut = oC.sPathOut .. 'index.txt'
 bOK, sError = oC.stringToFile(sIndex, sPathFileOut)
 if not bOK then print(sError) end
+
+-- make a scaffold info.txt
+sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
+		.. '\nTotal Jumps: ' .. tostring(iTotalJumps)
+		.. '\nTotal Nodes: ' .. tostring(iTotalNodes)
+sPathFileOut = oC.sPathOut .. 'info.txt'
+bOK, sError = oC.stringToFile(sOut, sPathFileOut)
+print(sOut .. ' ' .. sError)
 
 print(string.format('elapsed time: %.2f\n', os.clock() - iTS0))
 
