@@ -1,6 +1,7 @@
 -- header order: id (folder name)|width (x)|height (y)|depth (z)
 -- |amount of materials|slice direction x|slice direction y|slice direction z
--- |name
--- any line that does not have 9 parts, MUST be ignored
-hat1|315|157|420|1095|0|1|0|Big Coloured Hat
-stag2|440|678|245|1|0|1|0|Huge Single Coloured Stag
+-- |amount of index.txt files containing list of slice-part file names|name
+-- any line that does not have 10 parts, MUST be ignored
+hat1|315|157|420|1095|0|1|0|1|Big Coloured Hat
+stag2|440|678|245|1|0|1|0|1|Huge Single Coloured Stag
+
