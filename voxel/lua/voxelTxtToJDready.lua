@@ -17,9 +17,10 @@
 		info.txt
 			Basic info about the model. Intended to be augmented with more
 			description by user.
-		index.txt
+		index<1-n>.txt
 			Not intended for user to edit this. All the file names in order of
 			printing are listed here.
+			The amount n can be taken from models index.txt (directory higher up)
 		materials.txt
 			Index of all colour/materials. Currently only for user reference.
 		s<Slice Number>_m<Material Index>_p<Part Number>.txt
@@ -52,6 +53,9 @@ local sDS = tSettings.sDirectionSep
 tSettings.iMaxJumps = 1234
 -- maximum nodes carried with printer head
 tSettings.iMaxNodes = 9 * 99 -- full deployer
+-- maximum charachters in slice indexN.txt files (approx as one entry will be added)
+-- test with adding 10 chars per round burnt Lua Controller at length 99980
+tSettings.iMaxChars = 76543
 
 -- position where jd can jump to if needed
 -- we don't know it, so we use something that will never be used
@@ -288,14 +292,6 @@ oC.sSummary = 'ID: ' .. oC.sID .. '\n'
 		.. 'total points: ' .. oC.tTotal.c .. '\n'
 		.. 'materials: ' .. tostring(#oC.tMaterials)
 
-
--- print for model-index.txt
-print('Add following line to models index.txt\n')
-local sOut = oC.sID .. '|' .. oC.tTotal.x .. '|' .. oC.tTotal.y .. '|' .. oC.tTotal.z
-	.. '|' .. #oC.tMaterials .. '|' .. oC.sDirection:gsub(sDS, '|')
-	.. '|<insert title>\n'
-print(sOut)
-
 -- export colour index table
 sOut = ''
 for i = 1, #oC.tMaterials do
@@ -418,6 +414,7 @@ local sLine, sFile, iCountJumps, iCountNodes, iCountParts
 local sIndex = ''
 local iTotalJumps = 0
 local iTotalNodes = 0
+local iTotalIndexFiles = 1
 for i, lS in ipairs(oC.lJDcompat) do
 	--print('slice: ' .. i)
 	for j = 1, #oC.tMaterials do
@@ -459,6 +456,14 @@ for i, lS in ipairs(oC.lJDcompat) do
 			bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
 			if bOK then
 				sIndex = sIndex .. sFile .. '\n'
+				if tS.iMaxChars <= #sIndex then
+					sPathFileOut = oC.sPathOut .. 'index'
+							.. tostring(iTotalIndexFiles) .. '.txt'
+					bOK, sError = oC.stringToFile(sIndex:sub(1, -2), sPathFileOut)
+					if not bOK then print(sError) end
+					iTotalIndexFiles = iTotalIndexFiles + 1
+					sIndex = ''
+				end
 			else
 				print(sError)
 			end
@@ -467,10 +472,13 @@ for i, lS in ipairs(oC.lJDcompat) do
 	end -- loop materials
 end -- loop slices
 
--- make index.txt with list of all parts
-sPathFileOut = oC.sPathOut .. 'index.txt'
-bOK, sError = oC.stringToFile(sIndex, sPathFileOut)
-if not bOK then print(sError) end
+-- write last indexN.txt
+if 0 < #sIndex then
+	sPathFileOut = oC.sPathOut .. 'index'
+			.. tostring(iTotalIndexFiles) .. '.txt'
+	bOK, sError = oC.stringToFile(sIndex:sub(1, -2), sPathFileOut)
+	if not bOK then print(sError) end
+end
 
 -- make a scaffold info.txt
 sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
@@ -479,6 +487,13 @@ sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
 sPathFileOut = oC.sPathOut .. 'info.txt'
 bOK, sError = oC.stringToFile(sOut, sPathFileOut)
 print(sOut .. ' ' .. sError)
+
+-- print for model-index.txt
+print('Add following line to models index.txt\n')
+local sOut = oC.sID .. '|' .. oC.tTotal.x .. '|' .. oC.tTotal.y .. '|' .. oC.tTotal.z
+	.. '|' .. #oC.tMaterials .. '|' .. oC.sDirection:gsub(sDS, '|')
+	.. '|' .. tostring(iTotalIndexFiles) .. '|<insert title>\n'
+print(sOut)
 
 print(string.format('elapsed time: %.2f\n', os.clock() - iTS0))
 
