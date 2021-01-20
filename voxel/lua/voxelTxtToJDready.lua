@@ -433,8 +433,8 @@ for i, lS in ipairs(oC.lJDcompat) do
 			sOut = sOut .. sPoint
 			if tS.iMaxJumps <= iCountJumps or tS.iMaxNodes <= iCountNodes then
 				sFile = 's' .. tostring(i) .. '_m' .. tostring(j)
-						.. '_p' .. tostring(iCountParts) .. '.txt'
-				bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
+						.. '_p' .. tostring(iCountParts)
+				bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile .. '.txt')
 				if bOK then
 					sIndex = sIndex .. sFile .. '\n'
 				else
@@ -452,8 +452,10 @@ for i, lS in ipairs(oC.lJDcompat) do
 			iTotalJumps = iTotalJumps + iCountJumps
 			iTotalNodes = iTotalNodes + iCountNodes
 			sFile = 's' .. tostring(i) .. '_m' .. tostring(j)
-					.. '_p' .. tostring(iCountParts) .. '.txt'
-			bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile)
+			if 0 < iCountParts then
+				sFile = sFile .. '_p' .. tostring(iCountParts)
+			end
+			bOK, sError = oC.stringToFile(sOut, oC.sPathOut .. sFile .. '.txt')
 			if bOK then
 				sIndex = sIndex .. sFile .. '\n'
 				if tS.iMaxChars <= #sIndex then
