@@ -23,7 +23,7 @@
 			The amount n can be taken from models index.txt (directory higher up)
 		materials.txt
 			Index of all colour/materials. Currently only for user reference.
-		s<Slice Number>_m<Material Index>_p<Part Number>.txt
+		s<Slice Number>_m<Material Index>[_p<Part Number>].txt
 			Each material/colour for each slice is in it's own file.
 			The file format is:
 				x1|y1|z1|x2|y2|z2 ... xN|yN|zN
@@ -65,6 +65,9 @@ tSettings.tEscapePos = { x = .1, y = .1, z = .1, m = 0 }
 tSettings.iJDradius = 1
 -- calculate min jump distance from radius
 local iDeltaMin = 1 + (2 * tSettings.iJDradius)
+
+tSettings.iFullDiamondDrawer = 114048
+tSettings.iFullChest = 99 * 90
 
 -- pseudo object
 local oC = {}
@@ -155,6 +158,8 @@ end -- string:split
 
 
 function oC.stringToFile(sOut, sPathFileOut)
+	-- for simulation runs
+	do return true, '' end
 	local rFH = io.open(sPathFileOut, 'w')
 	if rFH then
 		rFH:write(sOut)
@@ -202,6 +207,23 @@ function oC.isNotIntersecting(tA, tB)
 	if math.abs(tA.z - tB.z) >= iDeltaMin then return true end
 	return false
 end -- isNotIntersecting
+function oC.jumpCountToBuildTime(iC)
+	local iInterval = 40
+	local sOut = ''
+	local iTotalSeconds = iInterval * iC
+	local nDays = iTotalSeconds / (3600 * 24)
+	local nHours = iTotalSeconds / 3600
+	local nMinutes = iTotalSeconds / 60
+	local iDays = math.floor(nDays)
+	if 1 == iDays then
+		sOut = 'One day, '
+	elseif 1 < iDays then
+		sOut = tostring(iDays) .. ' days, '
+	end
+	sOut = sOut .. tostring(math.floor(nHours - iDays * 24)) .. ' hours,\n'
+	sOut = sOut .. tostring(math.floor(nMinutes % 60)) .. ' minutes,\n'
+	return sOut
+end -- jumpCountToBuildTime
 
 -- read arguments
 oC.sPathFileIn = arg[1]
@@ -486,6 +508,10 @@ end
 sOut = oC.sSummary .. '\n' .. sDirectionInfo .. ' (' .. sSign .. sK1 .. ')'
 		.. '\nTotal Jumps: ' .. tostring(iTotalJumps)
 		.. '\nTotal Nodes: ' .. tostring(iTotalNodes)
+		.. '\nStacks: ' .. tostring(iTotalNodes / 99)
+		.. '\nChests: ' .. tostring(iTotalNodes / tS.iFullChest)
+		.. '\nDiamond Drawers: ' .. tostring(iTotalNodes / tS.iFullDiamondDrawer)
+		.. '\nOptimistic Plot Time: ' .. oC.jumpCountToBuildTime(iTotalJumps)
 sPathFileOut = oC.sPathOut .. 'info.txt'
 bOK, sError = oC.stringToFile(sOut, sPathFileOut)
 print(sOut .. ' ' .. sError)
