@@ -159,7 +159,7 @@ end -- string:split
 
 function oC.stringToFile(sOut, sPathFileOut)
 	-- for simulation runs
-	do return true, '' end
+	--do return true, '' end
 	local rFH = io.open(sPathFileOut, 'w')
 	if rFH then
 		rFH:write(sOut)
